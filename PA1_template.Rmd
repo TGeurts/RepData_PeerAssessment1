@@ -7,19 +7,54 @@ output:
 
 
 ## Loading and preprocessing the data
-
-
+```{r echo = TRUE}
+stepsdata<- read.csv("activity.csv")
+stepsdata$time <-lapply(stepsdata$interval, sprintf, fmt="%00004.0f")
+stepsdata$time <-sprintf("%s:%s",substr(stepsdata$time,1,2),substr(stepsdata$time,3,4))
+stepsdata$date <- as.Date(stepsdata$date)
+```
 
 ## What is mean total number of steps taken per day?
 
-
+```{r echo=TRUE}
+stepsPerDay <- sapply(split(stepsdata$steps, stepsdata$date), sum)
+hist(stepsPerDay, main="Total number of steps taken per day", xlab="Steps per day")
+mean(stepsPerDay, na.rm=T)
+median(stepsPerDay, na.rm=T)
+```
 
 ## What is the average daily activity pattern?
-
+```{r echo=TRUE}
+averageSteps<-sapply(split(stepsdata$steps,stepsdata$time), mean, na.rm=TRUE)
+activityPattern <- data.frame(times = unique(stepsdata$time), steps = averageSteps, row.names = NULL)
+plot(strptime(activityPattern$times, format = "%H:%M"), activityPattern$steps, type="l", main="Average daily activity pattern", xlab = "Time of day - 5 min interval", ylab = "Average number of steps")
+activityPattern$times[which.max(activityPattern$steps)]
+```
 
 
 ## Imputing missing values
+```{r echo=TRUE}
+navector<- is.na(stepsdata$steps)
+sprintf("Number of missingvalues is %s.", sum(navector))
 
+richstepsdata<-stepsdata
+#missing values are being replaced by the 5 min average of that interval
+richstepsdata$steps[is.na(richstepsdata$steps)] <- activityPattern$steps
 
-
+richstepsPerDay <- sapply(split(richstepsdata$steps, richstepsdata$date), sum)
+hist(richstepsPerDay, main="Total number of steps taken per day", xlab="Steps per day")
+mean(richstepsPerDay, na.rm=T)
+median(richstepsPerDay, na.rm=T)
+```
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r echo=TRUE}
+library(lattice)
+# names of weekdays are unfortunately locale dependent. 
+# If you borrow this code don't forget to update that
+richstepsdata$dow <- as.factor(ifelse(weekdays(richstepsdata$date) %in% c("zaterdag", "zondag"), "weekend","weekday"))
+averageWeekend <- aggregate(richstepsdata$steps, by = list(richstepsdata$interval, richstepsdata$dow), mean)
+colnames(averageWeekend) <- c("interval", "dow", "average")
+
+xyplot(averageWeekend$average ~ averageWeekend$interval | averageWeekend$dow, layout =c(1,2), type="l", xlab = "5 min interval", ylab = "Average number of steps")
+```
